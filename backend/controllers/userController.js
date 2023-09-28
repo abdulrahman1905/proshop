@@ -1,6 +1,6 @@
 import asyncHandler from '../middleware/asyncHandler.js'
 import User from '../models/userModel.js'
-import jwt from 'jsonwebtoken'
+import generateToken from '../utils/generateToken.js'
 
 // @desc    Login user & get token
 // @route   POST /api/users/login
@@ -9,20 +9,11 @@ const loginUser = asyncHandler(async (req, res) => {
   const { email, password } = req.body
   const user = await User.findOne({ email })
   if (user && (await user.validatePassword(password))) {
-    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
-      expiresIn: '30d',
-    })
+    generateToken(res, user._id)
 
-    res.cookie('jwt', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV !== 'development',
-      sameSite: 'strict',
-      maxAge: 30 * 24 * 60 * 60 * 1000,
-    })
-
-    res.json({
+    res.status(200).json({
       _id: user._id,
-      email: email,
+      email: user.email,
       name: user.name,
       isAdmin: user.isAdmin,
     })
@@ -36,28 +27,88 @@ const loginUser = asyncHandler(async (req, res) => {
 // @route   POST /api/users
 // @access  Public
 const registerUser = asyncHandler(async (req, res) => {
-  res.send('Register user')
+  const { name, email, password } = req.body
+  const userExists = await User.findOne({ email })
+  if (userExists) {
+    res.status(400)
+    throw new Error('User already exists')
+  }
+  const user = await User.create({
+    name,
+    email,
+    password,
+  })
+  if (user) {
+    generateToken(res, user._id)
+
+    res.status(201).json({
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      isAdmin: user.isAdmin,
+    })
+  } else {
+    res.status(400)
+    throw new Error('Invalid user data')
+  }
 })
 
 // @desc    Logout user
 // @route   POST /api/users/logout
 // @access  Private
 const logoutUser = asyncHandler(async (req, res) => {
-  res.send('Logout user')
+  res.cookie('jwt', '', {
+    httpOnly: true,
+    expires: new Date(0),
+  })
+
+  res.status(200).json({ message: 'Logged out successfully' })
 })
 
 // @desc    Get user profile : User id from token
 // @route   GET /api/users/profile
 // @access  Private
 const getUserProfile = asyncHandler(async (req, res) => {
-  res.send('Get user profile')
+  const user = await User.findById(req.user._id).select('-password')
+
+  if (user) {
+    res.status(200).json({
+      _id: user._id,
+      email: user.email,
+      name: user.name,
+      isAdmin: user.isAdmin,
+    })
+  } else {
+    res.status(401)
+    throw new Error('User data not forund')
+  }
 })
 
 // @desc    Update user profile : User id from token
 // @route   PUT /api/users/profile
 // @access  Private
 const updateUserProfile = asyncHandler(async (req, res) => {
-  res.send('Update user profile')
+  const user = await User.findById(req.user._id).select('-password')
+
+  if (user) {
+    user.name = req.body.name || user.name
+    user.email = req.body.email || user.email
+
+    if (req.body.password) {
+      user.password = req.body.password
+    }
+    const updatedUser = await user.save()
+
+    res.status(200).json({
+      _id: updatedUser._id,
+      email: updatedUser.email,
+      name: updatedUser.name,
+      isAdmin: updatedUser.isAdmin,
+    })
+  } else {
+    res.status(401)
+    throw new Error('User not forund')
+  }
 })
 
 // @desc    Get all users
