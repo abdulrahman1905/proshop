@@ -115,28 +115,67 @@ const updateUserProfile = asyncHandler(async (req, res) => {
 // @route   GET /api/users
 // @access  Private/Admin
 const getUsers = asyncHandler(async (req, res) => {
-  res.send('Get all users')
+  const users = await User.find({}).select('-password')
+  if (users) {
+    res.status(200).json(users)
+  } else {
+    res.status(404)
+    throw new Error('No user found')
+  }
 })
 
 // @desc    Get user by Id
 // @route   GET /api/users/:id
 // @access  Private/Admin
 const getUserById = asyncHandler(async (req, res) => {
-  res.send('Get user by id')
+  const user = await User.findById(req.params.id).select('-password')
+  if (user) {
+    res.status(200).json(user)
+  } else {
+    res.status(404)
+    throw new Error('User not found')
+  }
 })
 
 // @desc    Delete user
 // @route   DELETE /api/users/:id
 // @access  Private/Admin
 const deleteUserById = asyncHandler(async (req, res) => {
-  res.send('Delete user')
+  const user = await User.findById(req.params.id)
+  if (user) {
+    if (user.isAdmin) {
+      res.status(400)
+      throw new Error('Cannot delete admin user')
+    }
+    await User.deleteOne({ _id: user._id })
+    res.status(201).json({ message: 'User deleted successfully' })
+  } else {
+    res.status(404)
+    throw new Error('User not found')
+  }
 })
 
 // @desc    Update user by id
 // @route   PUT /api/users/:id
 // @access  Private/Admin
 const updateUserById = asyncHandler(async (req, res) => {
-  res.send('Update user by id')
+  const { name, email, isAdmin } = req.body
+  const user = await User.findById(req.params.id).select('-password')
+  if (user) {
+    user.name = name || user.name
+    user.email = email || user.email || email
+    user.isAdmin = Boolean(isAdmin || user.isAdmin)
+    const updatedUser = await user.save()
+    res.status(200).json({
+      _id: updatedUser._id,
+      name: updatedUser.name,
+      email: updatedUser.email,
+      isAdmin: updatedUser.isAdmin,
+    })
+  } else {
+    res.status(404)
+    throw new Error('User not found')
+  }
 })
 
 export {
