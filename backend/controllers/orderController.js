@@ -47,14 +47,23 @@ const getMyOrders = asyncHandler(async (req, res) => {
 
 // @desc    Get order by ID
 // @route   GET /api/orders/:id
-// @access  Private/Admin?
+// @access  Private
 const getOrderById = asyncHandler(async (req, res) => {
   const order = await Order.findById(req.params.id).populate(
     'user',
-    'name email'
+    'name email isAdmin'
   )
+  //check if user id is equal to req.user._id or
   if (order) {
-    res.status(200).json(order)
+    if (
+      order.user._id.toString() === req.user._id.toString() ||
+      req.user.isAdmin
+    ) {
+      res.status(200).json(order)
+    } else {
+      res.status(404)
+      throw new Error('User not authorized')
+    }
   } else {
     res.status(404)
     throw new Error('Resource not found')

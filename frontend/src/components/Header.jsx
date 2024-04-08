@@ -8,6 +8,7 @@ import SearchBox from './SearchBox'
 import { useSelector, useDispatch } from 'react-redux'
 import { removeCredentials } from '../slices/authSlice'
 import { useLogoutMutation } from '../slices/usersApiSlice'
+import { clearCartItems, clearShippingAddress } from '../slices/cartSlice'
 
 const Header = () => {
   const { cartItems, totalNumberOfItems } = useSelector((state) => state.cart)
@@ -22,6 +23,8 @@ const Header = () => {
     try {
       await logout().unwrap()
       dispatch(removeCredentials())
+      dispatch(clearCartItems())
+      dispatch(clearShippingAddress())
       navigate('/login')
     } catch (err) {
       console.log(err)
